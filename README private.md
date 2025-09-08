@@ -52,15 +52,33 @@ Fill in your Supabase and Google Gemini API credentials.
 
 4. Set up Supabase:
    - Create a new Supabase project
+   - Run the migration file in the Supabase SQL editor
    - Enable Google OAuth in Authentication settings
    - Add your `GEMINI_API_KEY` as a secret in Project Settings > Edge Functions
 
 5. Add your ONNX model:
    - Place your trained plant disease model as `public/models/plant-disease-model.onnx`
+   - See `public/models/README.md` for model requirements
 
 6. Start the development server:
 ```bash
 npm run dev
+```
+
+## Project Structure
+
+```
+├── app/                    # Next.js app router pages
+├── components/ui/          # Reusable UI components
+├── lib/
+│   ├── ai/                # ONNX inference engine
+│   ├── providers/         # React context providers
+│   ├── stores/            # Zustand state stores
+│   └── supabase/          # Supabase client and types
+├── supabase/
+│   ├── functions/         # Edge functions
+│   └── migrations/        # Database migrations
+└── public/models/         # ONNX model files
 ```
 
 ## Key Features
@@ -103,6 +121,25 @@ The app is configured for deployment on Vercel:
 2. Add environment variables in Vercel dashboard
 3. Deploy Supabase Edge Functions using the Supabase CLI
 4. Deploy automatically on push to main branch
+
+### Deploying Edge Functions
+
+To deploy the Supabase Edge Functions:
+
+```bash
+# Install Supabase CLI
+npm install -g supabase
+
+# Login to Supabase
+supabase login
+
+# Deploy functions
+supabase functions deploy chat-gemini
+supabase functions deploy classify-image
+
+# Set secrets
+supabase secrets set GEMINI_API_KEY=your_api_key_here
+```
 
 ## Contributing
 
