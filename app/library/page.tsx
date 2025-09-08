@@ -161,7 +161,7 @@ export default function LibraryPage() {
                               <h3 className="font-semibold truncate">
                                 {scan.disease_name || 'Healthy Plant'}
                               </h3>
-                              <Badge variant={scan.disease_name ? 'destructive' : 'success'}>
+                              <Badge variant={scan.disease_name ? 'destructive' : 'secondary'}>
                                 {Math.round(scan.confidence * 100)}%
                               </Badge>
                             </div>
@@ -360,7 +360,7 @@ export default function LibraryPage() {
 
                 <div className="flex items-center justify-between">
                   <span className="text-sm text-muted-foreground">Confidence</span>
-                  <Badge variant={selectedScan.disease_name ? 'destructive' : 'success'}>
+                  <Badge variant={selectedScan.disease_name ? 'destructive' : 'secondary'}>
                     {Math.round(selectedScan.confidence * 100)}%
                   </Badge>
                 </div>
