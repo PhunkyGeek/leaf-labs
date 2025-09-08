@@ -1,4 +1,10 @@
-import { createClient } from 'npm:@supabase/supabase-js@2'
+// Make this file a module and avoid cross-file name collisions (e.g., corsHeaders)
+export {};
+
+// NOTE: VS Code/tsc (Node) can't resolve Deno's `npm:` specifier.
+// We keep it for runtime correctness and silence the local type error.
+// @ts-ignore -- resolved by Deno at runtime
+import { createClient } from 'npm:@supabase/supabase-js@2';
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -15,19 +21,22 @@ Deno.serve(async (req: Request) => {
   }
 
   try {
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!
-    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     
-    const supabase = createClient(supabaseUrl, supabaseServiceKey)
+    const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
     // Update last synced timestamp
+    const metaIdRes = await supabase.from('meta').select('id').single();
+    const metaId = metaIdRes.data?.id;
+
     const { error: updateError } = await supabase
       .from('meta')
       .update({ last_synced_at: new Date().toISOString() })
-      .eq('id', (await supabase.from('meta').select('id').single()).data?.id)
+      .eq('id', metaId ?? '');
 
     if (updateError) {
-      throw updateError
+      throw updateError;
     }
 
     // You could add logic here to sync with external disease databases
@@ -36,10 +45,10 @@ Deno.serve(async (req: Request) => {
     const { data: diseases, error: diseasesError } = await supabase
       .from('diseases')
       .select('*')
-      .order('created_at', { ascending: false })
+      .order('created_at', { ascending: false });
 
     if (diseasesError) {
-      throw diseasesError
+      throw diseasesError;
     }
 
     return new Response(
@@ -57,12 +66,13 @@ Deno.serve(async (req: Request) => {
       }
     );
 
-  } catch (error) {
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : String(error);
     console.error('Sync error:', error);
     return new Response(
       JSON.stringify({
         success: false,
-        error: error.message,
+        error: message,
         diseases: []
       }),
       {

@@ -1,3 +1,6 @@
+// Make this file a module so its top-level names don't collide with other function files
+export {};
+
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
@@ -79,7 +82,7 @@ Deno.serve(async (req: Request) => {
 Provide detailed, practical, and actionable advice. Be conversational and helpful. If asked about specific diseases, provide comprehensive information including symptoms, causes, treatment options, and prevention methods.`;
 
     // Build conversation contents for Gemini API
-    const contents = [];
+    const contents: Array<{ role: "user" | "model"; parts: Array<{ text: string }> }> = [];
     
     // Add system prompt as first message
     contents.push({
@@ -155,13 +158,14 @@ Provide detailed, practical, and actionable advice. Be conversational and helpfu
       throw new Error('No response generated from Gemini');
     }
 
-    const responseText = geminiData.candidates[0].content.parts[0].text;
+    const responseText =
+      geminiData.candidates?.[0]?.content?.parts?.[0]?.text ?? '';
 
     return new Response(
       JSON.stringify({
         success: true,
         response: responseText.trim()
-      }),
+      } satisfies ChatResponse),
       {
         headers: {
           'Content-Type': 'application/json',
@@ -177,7 +181,7 @@ Provide detailed, practical, and actionable advice. Be conversational and helpfu
         success: false,
         error: 'Failed to generate response',
         response: 'I apologize, but I encountered an error. Please try again or rephrase your question.'
-      }),
+      } satisfies ChatResponse),
       {
         status: 500,
         headers: {
