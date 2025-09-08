@@ -1,4 +1,12 @@
-import * as ort from 'onnxruntime-web'
+// NOTE: We intentionally do NOT import 'onnxruntime-web' here.
+// We lazy-load the UMD script from /onnx/ort.min.js at runtime and use window.ort.
+// Make sure ORT runtime files are in /public/onnx.
+
+declare global {
+  interface Window {
+    ort?: any;
+  }
+}
 
 interface InferenceResult {
   predictions: Array<{
@@ -9,14 +17,56 @@ interface InferenceResult {
   error?: string
 }
 
+let _ortLoadPromise: Promise<any> | null = null
+
+function loadOrtScript(): Promise<any> {
+  if (typeof window === 'undefined') {
+    return Promise.reject(new Error('ONNX runtime must run in the browser'))
+  }
+  if (window.ort) return Promise.resolve(window.ort)
+  if (_ortLoadPromise) return _ortLoadPromise
+
+  _ortLoadPromise = new Promise((resolve, reject) => {
+    const s = document.createElement('script')
+    s.src = '/onnx/ort.min.js'
+    s.async = true
+    s.onload = () => {
+      if (!window.ort) {
+        reject(new Error('ORT script loaded but window.ort is undefined'))
+        return
+      }
+      // Configure ORT runtime to use our self-hosted assets,
+      // and avoid cross-origin isolation requirements.
+      window.ort.env.wasm.wasmPaths = '/onnx/'
+      window.ort.env.wasm.numThreads = 1
+      window.ort.env.wasm.simd = false
+      resolve(window.ort)
+    }
+    s.onerror = () => reject(new Error('Failed to load /onnx/ort.min.js'))
+    document.head.appendChild(s)
+  })
+
+  return _ortLoadPromise
+}
+
+function softmax(logits: Float32Array | number[]): number[] {
+  const arr = Array.from(logits)
+  const m = Math.max(...arr)
+  const exps = arr.map(v => Math.exp(v - m))
+  const sum = exps.reduce((a, b) => a + b, 0)
+  return exps.map(v => v / sum)
+}
+
 class ONNXInferenceEngine {
-  private session: ort.InferenceSession | null = null
+  private session: any | null = null
   private modelLoaded = false
 
   async loadModel(modelPath: string = '/models/plant-disease-model.onnx'): Promise<boolean> {
     try {
-      ort.env.wasm.wasmPaths = 'https://cdn.jsdelivr.net/npm/onnxruntime-web@1.17.0/dist/'
-      this.session = await ort.InferenceSession.create(modelPath)
+      const ort = await loadOrtScript()
+      this.session = await ort.InferenceSession.create(modelPath, {
+        executionProviders: ['wasm'],
+      })
       this.modelLoaded = true
       return true
     } catch (error) {
@@ -32,26 +82,28 @@ class ONNXInferenceEngine {
       const img = new Image()
       
       img.onload = () => {
-        // Resize to model input size (224x224 for most plant disease models)
-        canvas.width = 224
-        canvas.height = 224
-        ctx.drawImage(img, 0, 0, 224, 224)
+        // Resize to model input size (224x224)
+        const W = 224, H = 224
+        canvas.width = W
+        canvas.height = H
+        ctx.drawImage(img, 0, 0, W, H)
         
-        const imageData = ctx.getImageData(0, 0, 224, 224)
+        const imageData = ctx.getImageData(0, 0, W, H)
         const pixels = imageData.data
         
-        // Normalize to [-1, 1] range and convert to CHW format
-        const input = new Float32Array(3 * 224 * 224)
+        // ImageNet normalization, CHW
+        const input = new Float32Array(3 * W * H)
+        const mean = [0.485, 0.456, 0.406]
+        const std  = [0.229, 0.224, 0.225]
         
-        for (let i = 0; i < 224 * 224; i++) {
+        for (let i = 0; i < W * H; i++) {
           const r = pixels[i * 4] / 255.0
           const g = pixels[i * 4 + 1] / 255.0
           const b = pixels[i * 4 + 2] / 255.0
           
-          // Normalize using ImageNet means and stds
-          input[i] = (r - 0.485) / 0.229
-          input[224 * 224 + i] = (g - 0.456) / 0.224
-          input[2 * 224 * 224 + i] = (b - 0.406) / 0.225
+          input[i]               = (r - mean[0]) / std[0] // R
+          input[W * H + i]       = (g - mean[1]) / std[1] // G
+          input[2 * W * H + i]   = (b - mean[2]) / std[2] // B
         }
         
         resolve(input)
@@ -74,13 +126,23 @@ class ONNXInferenceEngine {
         }
       }
 
+      const ort = await loadOrtScript()
       const inputTensor = await this.preprocessImage(imageFile)
       const tensor = new ort.Tensor('float32', inputTensor, [1, 3, 224, 224])
       
       const results = await this.session!.run({ input: tensor })
-      const output = results.output.data as Float32Array
-      
-      // Get top 3 predictions
+      // Try common output names; otherwise fall back to the first output
+      const outTensor: any =
+        (results as any).logits ??
+        (results as any).output ??
+        (results as any)[Object.keys(results)[0]]
+
+      if (!outTensor?.data) {
+        return { success: false, error: 'Invalid model output', predictions: [] }
+      }
+
+      const probs = softmax(outTensor.data as Float32Array)
+
       const classNames = [
         'Healthy',
         'Early Blight',
@@ -94,10 +156,10 @@ class ONNXInferenceEngine {
         'Anthracnose'
       ]
       
-      const predictions = Array.from(output)
-        .map((confidence, index) => ({
+      const predictions = probs
+        .map((p, index) => ({
           class_name: classNames[index] || `Disease ${index}`,
-          confidence: Math.max(0, Math.min(1, confidence))
+          confidence: Math.max(0, Math.min(1, p))
         }))
         .sort((a, b) => b.confidence - a.confidence)
         .slice(0, 3)
