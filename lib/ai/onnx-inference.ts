@@ -1,5 +1,3 @@
-'use client'
-
 import * as ort from 'onnxruntime-web'
 
 interface InferenceResult {
