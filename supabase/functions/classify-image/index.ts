@@ -1,3 +1,5 @@
+// supabase/functions/classify-image/index.ts
+
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
@@ -5,223 +7,140 @@ const corsHeaders = {
 };
 
 interface ClassificationRequest {
-  image_data: string
-  model_version?: string
+  image_data: string; // data URL
 }
 
 interface ClassificationResponse {
-  success: boolean
-  predictions: Array<{
-    class_name: string
-    confidence: number
-  }>
-  model_used: 'onnx' | 'gemini'
-  error?: string
+  success: boolean;
+  predictions: Array<{ class_name: string; confidence: number }>;
+  model_used: "gemini";
+  diagnosis?: string;
+  management?: string;
+  postcare?: string;
+  advice?: string;
+  explanation?: string;
+  error?: string;
 }
 
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
-    return new Response(null, {
-      status: 200,
-      headers: corsHeaders,
-    });
+    return new Response(null, { status: 200, headers: corsHeaders });
   }
 
   try {
-    const { image_data, model_version = 'v1.0' }: ClassificationRequest = await req.json();
+    const { image_data }: ClassificationRequest = await req.json();
 
-    if (!image_data) {
-      return new Response(
-        JSON.stringify({ 
-          success: false, 
-          error: 'No image data provided',
-          predictions: []
-        }),
-        {
-          status: 400,
-          headers: {
-            'Content-Type': 'application/json',
-            ...corsHeaders,
-          },
-        }
-      );
-    }
+    if (!image_data) return jsonErr("No image data provided", 400);
 
-    // Try ONNX inference first (would implement actual ONNX inference here)
-    let result: ClassificationResponse;
-    
-    try {
-      // Simulate ONNX inference
-      result = await simulateONNXInference(image_data);
-    } catch (onnxError) {
-      console.log('ONNX inference failed, falling back to Gemini');
-      // Fallback to Gemini
-      result = await geminiClassification(image_data);
-    }
-
-    return new Response(
-      JSON.stringify(result),
-      {
-        headers: {
-          'Content-Type': 'application/json',
-          ...corsHeaders,
-        },
-      }
-    );
-
-  } catch (error) {
-    console.error('Classification error:', error);
-    return new Response(
-      JSON.stringify({
-        success: false,
-        error: 'Internal server error',
-        predictions: []
-      }),
-      {
-        status: 500,
-        headers: {
-          'Content-Type': 'application/json',
-          ...corsHeaders,
-        },
-      }
-    );
+    const result = await geminiClassification(image_data);
+    return json(result);
+  } catch (err) {
+    console.error("Classification error:", err);
+    return jsonErr("Internal server error", 500);
   }
 });
 
-async function simulateONNXInference(imageData: string): Promise<ClassificationResponse> {
-  // Simulate ONNX processing time
-  await new Promise(resolve => setTimeout(resolve, 1000));
-  
-  // Mock predictions for demo
-  const predictions = [
-    { class_name: 'Early Blight', confidence: 0.92 },
-    { class_name: 'Late Blight', confidence: 0.06 },
-    { class_name: 'Healthy', confidence: 0.02 }
-  ];
-
-  return {
-    success: true,
-    predictions,
-    model_used: 'onnx'
-  };
+function json(body: unknown, status = 200) {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { "Content-Type": "application/json", ...corsHeaders },
+  });
+}
+function jsonErr(msg: string, status = 500) {
+  return json({ success: false, predictions: [], model_used: "gemini", error: msg }, status);
 }
 
+// ✅ Gemini dynamic image classification
 async function geminiClassification(imageData: string): Promise<ClassificationResponse> {
   try {
-    const geminiApiKey = Deno.env.get('GEMINI_API_KEY');
-    if (!geminiApiKey) {
-      throw new Error('Gemini API key not configured');
-    }
+    const geminiApiKey = Deno.env.get("GEMINI_API_KEY");
+    if (!geminiApiKey) throw new Error("GEMINI_API_KEY not set");
 
-    // Remove data URL prefix if present
-    const base64Image = imageData.replace(/^data:image\/[a-z]+;base64,/, '');
-    
-    const prompt = `Analyze this plant image and identify any diseases or health issues. 
+    const base64Image = imageData.replace(/^data:image\/[a-z]+;base64,/, "");
 
-Please provide:
-1. The most likely disease or condition (or "Healthy" if no issues detected)
-2. Your confidence level as a decimal between 0 and 1
-3. Brief explanation of visible symptoms
+    const prompt = `
+You are a precise plant pathology AI. Analyze this image and respond strictly in JSON:
+{
+  "status": "healthy" | "diseased" | "unknown",
+  "disease": "string or null",
+  "confidence": 0.0-1.0,
+  "symptoms": "short description",
+  "diagnosis": "brief cause explanation",
+  "management": "treatment or control measures",
+  "postcare": "follow-up steps",
+  "advice": "preventive recommendations"
+}
+Rules:
+- Do not output anything except valid JSON.
+- Estimate confidence realistically (0–1).
+- Keep responses concise and practical.
+`;
 
-Focus on common plant diseases like:
-- Early Blight
-- Late Blight  
-- Bacterial Spot
-- Powdery Mildew
-- Mosaic Virus
-- Leaf Scorch
-- Rust
-- Black Rot
-- Anthracnose
-
-Respond in this exact format:
-Disease: [disease name or "Healthy"]
-Confidence: [0.0-1.0]
-Symptoms: [brief description]`;
-
-    const geminiResponse = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent`,
+    const res = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiApiKey}`,
       {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-goog-api-key': geminiApiKey,
-        },
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          contents: [{
-            parts: [
-              {
-                text: prompt
-              },
-              {
-                inline_data: {
-                  mime_type: "image/jpeg",
-                  data: base64Image
-                }
-              }
-            ]
-          }],
-          generationConfig: {
-            temperature: 0.3,
-            topK: 32,
-            topP: 1,
-            maxOutputTokens: 512,
-          }
-        })
+          contents: [
+            {
+              role: "user",
+              parts: [
+                { text: prompt },
+                {
+                  inline_data: { mime_type: "image/jpeg", data: base64Image },
+                },
+              ],
+            },
+          ],
+          generationConfig: { maxOutputTokens: 800 },
+        }),
       }
     );
 
-    if (!geminiResponse.ok) {
-      const errorText = await geminiResponse.text();
-      console.error('Gemini Vision API error:', errorText);
-      throw new Error(`Gemini Vision API error: ${geminiResponse.status}`);
+    if (!res.ok) {
+      const text = await res.text();
+      console.error("Gemini error:", res.status, text);
+      return {
+        success: false,
+        predictions: [],
+        model_used: "gemini",
+        error: `Gemini API HTTP ${res.status}`,
+      };
     }
 
-    const geminiData = await geminiResponse.json();
-    
-    if (!geminiData.candidates || geminiData.candidates.length === 0) {
-      throw new Error('No response generated from Gemini Vision');
+    const data = await res.json();
+    const raw = data.candidates?.[0]?.content?.parts?.[0]?.text?.trim() ?? "";
+
+    let parsed: any;
+    try {
+      parsed = JSON.parse(raw);
+    } catch {
+      const cleaned = raw.replace(/^[^{[]+/, "").replace(/[^}\]]+$/, "");
+      parsed = JSON.parse(cleaned);
     }
 
-    const responseText = geminiData.candidates[0].content.parts[0].text;
-    
-    // Parse the structured response
-    const diseaseMatch = responseText.match(/Disease:\s*(.+)/i);
-    const confidenceMatch = responseText.match(/Confidence:\s*([\d.]+)/i);
-    
-    const diseaseName = diseaseMatch ? diseaseMatch[1].trim() : 'Unknown Disease';
-    const confidence = confidenceMatch ? parseFloat(confidenceMatch[1]) : 0.5;
-    
-    // Create predictions array with primary prediction and alternatives
-    const predictions = [
-      { class_name: diseaseName, confidence: Math.min(Math.max(confidence, 0), 1) }
-    ];
-    
-    // Add some alternative predictions for completeness
-    if (diseaseName !== 'Healthy') {
-      predictions.push(
-        { class_name: 'Healthy', confidence: Math.max(0, 1 - confidence - 0.1) },
-        { class_name: 'Other Disease', confidence: Math.max(0, 0.1) }
-      );
-    } else {
-      predictions.push(
-        { class_name: 'Early Blight', confidence: Math.max(0, 1 - confidence - 0.05) },
-        { class_name: 'Bacterial Spot', confidence: Math.max(0, 0.05) }
-      );
-    }
+    const status = parsed.status || "unknown";
+    const disease = parsed.disease || (status === "healthy" ? "Healthy" : "Unknown");
+    const conf = typeof parsed.confidence === "number" ? parsed.confidence : 0.8;
 
     return {
       success: true,
-      predictions,
-      model_used: 'gemini'
+      model_used: "gemini",
+      predictions: [{ class_name: disease, confidence: conf }],
+      diagnosis: parsed.diagnosis || "",
+      management: parsed.management || "",
+      postcare: parsed.postcare || "",
+      advice: parsed.advice || "",
+      explanation: parsed.symptoms || parsed.diagnosis || "",
     };
-  } catch (error) {
-    console.error('Gemini classification error:', error);
+  } catch (err) {
+    console.error("Gemini classification error:", err);
     return {
       success: false,
       predictions: [],
-      model_used: 'gemini',
-      error: 'Gemini classification failed'
+      model_used: "gemini",
+      error: "Gemini classification failed",
     };
   }
 }

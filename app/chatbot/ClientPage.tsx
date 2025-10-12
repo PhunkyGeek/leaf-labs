@@ -1,266 +1,299 @@
 'use client'
 
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuthStore } from '@/lib/stores/auth-store'
+import { useAppStore } from '@/lib/stores/app-store'
 import { BottomNav } from '@/components/ui/bottom-nav'
+import { ScanResultModal } from '@/components/ui/scan-result-modal'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
 import { Card, CardContent } from '@/components/ui/card'
-import { ArrowLeft, Send, Bot, User, Leaf } from 'lucide-react'
+import { Camera, Upload, ArrowLeft, Loader2 } from 'lucide-react'
+import { onnxEngine } from '@/lib/ai/onnx-inference'
+import { toast } from 'sonner'
+import Image from 'next/image'
 
-interface Message {
-  id: string
-  role: 'user' | 'assistant'
-  content: string
-  timestamp: Date
-}
-
-export default function ChatbotPage() {
+export default function ScanPage() {
   const { user } = useAuthStore()
+  const { addScan } = useAppStore()
   const router = useRouter()
   
-  const [messages, setMessages] = useState<Message[]>([
-    {
-      id: '1',
-      role: 'assistant',
-      content: "Hello! I'm your AI plant health assistant. I can help you with questions about plant diseases, treatments, and care tips. What would you like to know?",
-      timestamp: new Date()
-    }
-  ])
-  const [input, setInput] = useState('')
-  const [loading, setLoading] = useState(false)
+  const [selectedImage, setSelectedImage] = useState<File | null>(null)
+  const [imagePreview, setImagePreview] = useState<string | null>(null)
+  const [scanning, setScanning] = useState(false)
+  const [scanResult, setScanResult] = useState<any>(null)
+  const [showResult, setShowResult] = useState(false)
   
-  const messagesEndRef = useRef<HTMLDivElement>(null)
-  const inputRef = useRef<HTMLInputElement>(null)
-
-  useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [messages])
+  const fileInputRef = useRef<HTMLInputElement>(null)
+  const cameraInputRef = useRef<HTMLInputElement>(null)
 
   if (!user) {
     router.push('/auth')
     return null
   }
 
-  const sendMessage = async () => {
-    if (!input.trim() || loading) return
+  const handleImageSelect = (file: File) => {
+    setSelectedImage(file)
+    const url = URL.createObjectURL(file)
+    setImagePreview(url)
+  }
 
-    const userMessage: Message = {
-      id: Date.now().toString(),
-      role: 'user',
-      content: input.trim(),
-      timestamp: new Date()
-    }
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (file) handleImageSelect(file)
+  }
 
-    setMessages(prev => [...prev, userMessage])
-    setInput('')
-    setLoading(true)
-
+  const processScan = async () => {
+    if (!selectedImage) return
+    setScanning(true)
+    
     try {
-      // Get conversation history for context
-      const conversationHistory = messages.slice(-10).map(msg => ({
-        role: msg.role,
-        content: msg.content
-      }))
-      
-      // Call Gemini API via Supabase Edge Function
-      const response = await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/chat-gemini`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY}`,
+      // Try GPT-5-mini classification first through your Edge Function
+      toast.info('Analyzing image with AI (GPT-5-mini)...')
+      let result = await callOpenAIClassification(selectedImage)
+
+      // Fallback to ONNX if OpenAI fails
+      if (!result.success || !result.predictions?.length) {
+        toast.info('Falling back to local ONNX model...')
+        result = await onnxEngine.predict(selectedImage)
+      }
+
+      if (!result.success) throw new Error(result.error || 'AI classification failed.')
+
+      const mainPrediction = result.predictions[0]
+      const confidence = mainPrediction?.confidence ?? 0.85
+      const diseaseName = mainPrediction?.class_name || 'Unknown'
+
+      const formattedResult = {
+        image_url: imagePreview!,
+        disease_name: diseaseName,
+        confidence,
+        predictions: result.predictions,
+        explanation:
+          diseaseName === 'Healthy'
+            ? 'Your plant appears healthy. Keep up the good care!'
+            : 'This disease affects plant leaves and stems, reducing vitality.',
+        advice:
+          result.advice ||
+          (diseaseName === 'Healthy'
+            ? 'Continue proper watering, sunlight, and soil management.'
+            : 'Remove affected areas, apply organic fungicide or neem oil, and ensure good airflow.'),
+        postcare:
+          diseaseName === 'Healthy'
+            ? ''
+            : 'Monitor the plant for 2–3 weeks and reapply treatment if symptoms persist.',
+      }
+
+      setScanResult(formattedResult)
+      setShowResult(true)
+
+      addScan({
+        id: Date.now().toString(),
+        image_url: imagePreview!,
+        disease_name: diseaseName,
+        confidence,
+        created_at: new Date().toISOString(),
+        result: {
+          disease_id:
+            diseaseName !== 'Healthy'
+              ? diseaseName.toLowerCase().replace(/\s+/g, '_')
+              : null,
+          stage: diseaseName === 'Healthy' ? null : 2,
+          parts:
+            diseaseName === 'Healthy'
+              ? {}
+              : { leaves: 0.7, stems: 0.3, fruits: 0.1 },
+          explanation: formattedResult.explanation,
+          advice: formattedResult.advice,
+          postcare: formattedResult.postcare,
         },
-        body: JSON.stringify({
-          message: userMessage.content,
-          conversation_history: conversationHistory
-        })
       })
 
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`)
-      }
-
-      const data = await response.json()
-      
-      if (!data.success) {
-        console.error('Edge Function Error:', data.error)
-        throw new Error(data.error || 'Failed to get response')
-      }
-      
-      const assistantMessage: Message = {
-        id: (Date.now() + 1).toString(),
-        role: 'assistant',
-        content: data.response,
-        timestamp: new Date()
-      }
-
-      setMessages(prev => [...prev, assistantMessage])
+      toast.success('Scan completed successfully!')
     } catch (error) {
-      console.error('Chat error:', error)
-      
-      // More detailed error logging
-      if (error instanceof Error) {
-        console.error('Error details:', {
-          message: error.message,
-          stack: error.stack
-        })
-      }
-      
-      const errorMessage: Message = {
-        id: (Date.now() + 1).toString(),
-        role: 'assistant',
-        content: error instanceof Error && error.message.includes('HTTP error! status: 500') 
-          ? "I'm experiencing technical difficulties. This usually means the AI service needs to be configured. Please check that the Gemini API is properly set up."
-          : "I'm sorry, I encountered an error while processing your request. Please try again, and if the problem persists, check your internet connection.",
-        timestamp: new Date()
-      }
-      setMessages(prev => [...prev, errorMessage])
+      console.error('Scan error:', error)
+      toast.error('Failed to analyze the image. Please try again.')
     } finally {
-      setLoading(false)
+      setScanning(false)
     }
   }
 
+  const callOpenAIClassification = async (imageFile: File): Promise<any> => {
+    try {
+      const base64Image = await new Promise<string>((resolve) => {
+        const reader = new FileReader()
+        reader.onload = () => resolve(reader.result as string)
+        reader.readAsDataURL(imageFile)
+      })
 
-  const handleKeyPress = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault()
-      sendMessage()
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/classify-image`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY}`,
+          },
+          body: JSON.stringify({
+            image_data: base64Image,
+            model_version: 'gpt-5-mini',
+          }),
+        }
+      )
+
+      if (!response.ok) throw new Error(`HTTP ${response.status}`)
+      const data = await response.json()
+
+      if (!data.success) throw new Error(data.error || 'Classification failed')
+
+      return {
+        success: true,
+        predictions: data.predictions,
+        advice: data.advice || '',
+      }
+    } catch (error) {
+      console.error('OpenAI classification error:', error)
+      return { success: false, predictions: [] }
     }
   }
 
-  const suggestedQuestions = [
-    "How do I treat early blight?",
-    "What causes powdery mildew?",
-    "How often should I water my plants?",
-    "How to prevent plant diseases?"
-  ]
+  const resetScan = () => {
+    setSelectedImage(null)
+    setImagePreview(null)
+    setScanResult(null)
+    setShowResult(false)
+  }
 
   return (
-    <div className="min-h-screen bg-background flex flex-col">
-      {/* Header */}
-      <div className="sticky top-0 bg-background/95 backdrop-blur-sm border-b z-10">
-        <div className="flex items-center justify-between p-4">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => router.back()}
-          >
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            Back
-          </Button>
-          <div className="flex items-center gap-2">
-            <Bot className="h-5 w-5 text-primary" />
-            <h1 className="font-semibold">Plant Assistant</h1>
-          </div>
-          <div></div>
-        </div>
-      </div>
-
-      {/* Messages */}
-      <div className="flex-1 overflow-y-auto p-4 pb-32">
-        <div className="space-y-4 max-w-2xl mx-auto">
-          {messages.map((message) => (
-            <div
-              key={message.id}
-              className={`flex gap-3 ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
-            >
-              {message.role === 'assistant' && (
-                <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
-                  <Bot className="h-4 w-4 text-primary" />
-                </div>
-              )}
-              
-              <Card className={`max-w-[80%] ${message.role === 'user' ? 'bg-primary text-primary-foreground' : ''}`}>
-                <CardContent className="p-3">
-                  <div className="whitespace-pre-wrap text-sm">
-                    {message.content}
-                  </div>
-                  <div className={`text-xs mt-2 opacity-70`}>
-                    {message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                  </div>
-                </CardContent>
-              </Card>
-
-              {message.role === 'user' && (
-                <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center flex-shrink-0">
-                  <User className="h-4 w-4" />
-                </div>
-              )}
-            </div>
-          ))}
-
-          {loading && (
-            <div className="flex gap-3 justify-start">
-              <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
-                <Bot className="h-4 w-4 text-primary" />
-              </div>
-              <Card>
-                <CardContent className="p-3">
-                  <div className="flex gap-1">
-                    <div className="w-2 h-2 bg-muted-foreground rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
-                    <div className="w-2 h-2 bg-muted-foreground rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
-                    <div className="w-2 h-2 bg-muted-foreground rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-          )}
-
-          <div ref={messagesEndRef} />
-        </div>
-      </div>
-
-      {/* Quick Questions */}
-      {messages.length === 1 && (
-        <div className="px-4 pb-6 mb-32">
-          <div className="max-w-2xl mx-auto">
-            <div className="text-sm text-muted-foreground mb-2">Quick questions:</div>
-            <div className="grid grid-cols-1 gap-3">
-              {suggestedQuestions.map((question) => (
-                <Button
-                  key={question}
-                  variant="outline"
-                  size="sm"
-                  className="justify-start text-left h-auto whitespace-normal p-3 min-h-[3rem]"
-                  onClick={() => {
-                    setInput(question)
-                    inputRef.current?.focus()
-                  }}
-                >
-                  {question}
-                </Button>
-              ))}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Input */}
-      <div className="fixed bottom-16 left-0 right-0 bg-background/95 backdrop-blur-sm border-t p-4">
-        <div className="max-w-2xl mx-auto">
-          <div className="flex gap-2">
-            <Input
-              ref={inputRef}
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyPress={handleKeyPress}
-              placeholder="Ask about plant care, diseases, or treatments..."
-              disabled={loading}
-              className="flex-1"
-            />
-            <Button
-              onClick={sendMessage}
-              disabled={!input.trim() || loading}
-              size="sm"
-            >
-              <Send className="h-4 w-4" />
+    <div className="min-h-screen bg-background">
+      <div className="main-content">
+        {/* Header */}
+        <div className="sticky top-0 bg-background/95 backdrop-blur-sm border-b z-10">
+          <div className="flex items-center justify-between p-4">
+            <Button variant="ghost" size="sm" onClick={() => router.back()}>
+              <ArrowLeft className="h-4 w-4 mr-2" />
+              Back
             </Button>
+            <h1 className="font-semibold">Plant Scanner</h1>
+            <div></div>
           </div>
+        </div>
+
+        <div className="p-6 space-y-6">
+          {!selectedImage ? (
+            <>
+              {/* Instructions */}
+              <Card>
+                <CardContent className="pt-6">
+                  <div className="text-center space-y-4">
+                    <div className="mx-auto w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center">
+                      <Camera className="h-8 w-8 text-primary" />
+                    </div>
+                    <div>
+                      <h2 className="font-semibold text-lg">Ready to Scan</h2>
+                      <p className="text-sm text-muted-foreground mt-1">
+                        Take a clear photo of the affected plant or upload from your gallery
+                      </p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Scanning Tips */}
+              <Card>
+                <CardContent className="pt-6">
+                  <h3 className="font-semibold mb-3">Tips for Best Results</h3>
+                  <div className="space-y-2 text-sm text-muted-foreground">
+                    <div className="flex items-start gap-2">
+                      <div className="w-1.5 h-1.5 rounded-full bg-primary mt-2 flex-shrink-0"></div>
+                      <span>Ensure good lighting and focus on the affected area</span>
+                    </div>
+                    <div className="flex items-start gap-2">
+                      <div className="w-1.5 h-1.5 rounded-full bg-primary mt-2 flex-shrink-0"></div>
+                      <span>Include the entire leaf or affected plant part</span>
+                    </div>
+                    <div className="flex items-start gap-2">
+                      <div className="w-1.5 h-1.5 rounded-full bg-primary mt-2 flex-shrink-0"></div>
+                      <span>Avoid blurry or dark images for accurate results</span>
+                    </div>
+                    <div className="flex items-start gap-2">
+                      <div className="w-1.5 h-1.5 rounded-full bg-primary mt-2 flex-shrink-0"></div>
+                      <span>Hold steady and capture from about 6–12 inches away</span>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Action Buttons */}
+              <div className="space-y-3">
+                <Button size="lg" className="w-full h-14" onClick={() => cameraInputRef.current?.click()}>
+                  <Camera className="h-5 w-5 mr-2" />
+                  Take Photo
+                </Button>
+                
+                <Button
+                  variant="outline"
+                  size="lg"
+                  className="w-full h-14"
+                  onClick={() => fileInputRef.current?.click()}
+                >
+                  <Upload className="h-5 w-5 mr-2" />
+                  Upload from Gallery
+                </Button>
+              </div>
+
+              {/* Hidden Inputs */}
+              <input ref={cameraInputRef} type="file" accept="image/*" capture="environment" onChange={handleFileUpload} className="hidden" />
+              <input ref={fileInputRef} type="file" accept="image/*" onChange={handleFileUpload} className="hidden" />
+            </>
+          ) : (
+            <>
+              {/* Image Preview */}
+              <Card>
+                <CardContent className="pt-6">
+                  <div className="space-y-4">
+                    <div className="relative aspect-square rounded-lg overflow-hidden bg-muted">
+                      <Image src={imagePreview!} alt="Selected plant" fill className="object-cover" />
+                      <div className="absolute inset-4 border-2 border-primary/50 border-dashed rounded-lg pointer-events-none">
+                        <div className="absolute -top-6 left-0 text-xs text-primary font-medium bg-background px-2 py-1 rounded">
+                          Focus Area
+                        </div>
+                      </div>
+                    </div>
+                    
+                    <div className="text-center">
+                      <h3 className="font-semibold">Image Selected</h3>
+                      <p className="text-sm text-muted-foreground">{selectedImage?.name || 'Captured image'}</p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Buttons */}
+              <div className="space-y-3">
+                <Button size="lg" className="w-full h-14" onClick={processScan} disabled={scanning}>
+                  {scanning ? (
+                    <>
+                      <Loader2 className="h-5 w-5 mr-2 animate-spin" />
+                      Analyzing...
+                    </>
+                  ) : (
+                    'Analyze Plant'
+                  )}
+                </Button>
+                
+                <Button variant="outline" size="lg" className="w-full h-14" onClick={resetScan} disabled={scanning}>
+                  Choose Different Image
+                </Button>
+              </div>
+            </>
+          )}
         </div>
       </div>
 
       <BottomNav />
+      
+      <ScanResultModal open={showResult} onOpenChange={setShowResult} result={scanResult} />
     </div>
   )
 }

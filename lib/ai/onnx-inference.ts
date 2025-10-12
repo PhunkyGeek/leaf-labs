@@ -15,6 +15,11 @@ interface InferenceResult {
   }>
   success: boolean
   error?: string
+  explanation?: string
+  advice?: string
+  diagnosis?: string
+  management?: string
+  postcare?: string
 }
 
 let _ortLoadPromise: Promise<any> | null = null

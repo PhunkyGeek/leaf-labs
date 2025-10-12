@@ -49,6 +49,90 @@ const mockDiseases = [
       prevention: ['Control insect vectors', 'Use virus-free planting material', 'Sanitize tools regularly'],
       treatment: ['Remove infected plants', 'Control aphid populations', 'No chemical cure available']
     }
+  },
+  {
+    id: 'powdery_mildew',
+    name: 'Powdery Mildew',
+    type: 'fungal' as const,
+    short_desc: 'White, powdery growth on leaf surfaces, commonly in dry conditions with poor air flow.',
+    long_desc: 'Powdery mildew is a fungal disease that affects many crops and appears as white, dusty spots on leaves and stems. It thrives in warm, dry climates and can weaken plant health over time if untreated.',
+    thumbnail_url: 'https://images.pexels.com/photos/1128675/pexels-photo-1128675.jpeg?auto=compress&cs=tinysrgb&w=400',
+    tips: {
+      prevention: ['Plant in well-ventilated areas', 'Avoid overcrowding', 'Select resistant varieties'],
+      treatment: ['Prune affected areas', 'Apply sulfur or neem oil spray', 'Maintain moderate humidity']
+    }
+  },
+  {
+    id: 'late_blight',
+    name: 'Late Blight',
+    type: 'fungal' as const,
+    short_desc: 'Dark, irregular patches on leaves and stems, spreading rapidly in cool, wet conditions.',
+    long_desc: 'Late blight is a destructive fungal disease caused by Phytophthora infestans. It causes large brown lesions with white mold on the underside of leaves and can destroy entire crops in days under moist conditions.',
+    thumbnail_url: 'https://images.pexels.com/photos/1425209/pexels-photo-1425209.jpeg?auto=compress&cs=tinysrgb&w=400',
+    tips: {
+      prevention: ['Avoid working with wet plants', 'Use resistant varieties', 'Ensure good drainage'],
+      treatment: ['Remove infected plants immediately', 'Use copper fungicides', 'Monitor moisture levels regularly']
+    }
+  },
+  {
+    id: 'anthracnose',
+    name: 'Anthracnose',
+    type: 'fungal' as const,
+    short_desc: 'Sunken dark spots on leaves, fruits, or stems, often appearing during humid weather.',
+    long_desc: 'Anthracnose is a fungal disease affecting beans, mangoes, and other crops. It causes sunken black or brown spots on leaves and fruits, leading to reduced yield and quality if not controlled.',
+    thumbnail_url: 'https://images.pexels.com/photos/1591462/pexels-photo-1591462.jpeg?auto=compress&cs=tinysrgb&w=400',
+    tips: {
+      prevention: ['Avoid overhead irrigation', 'Remove diseased debris', 'Use clean planting material'],
+      treatment: ['Apply fungicides as needed', 'Ensure proper spacing', 'Improve air circulation']
+    }
+  },
+  {
+    id: 'rust',
+    name: 'Rust',
+    type: 'fungal' as const,
+    short_desc: 'Orange or brown pustules on leaf undersides, leading to yellowing and premature leaf drop.',
+    long_desc: 'Rust is a fungal disease that spreads easily in humid conditions, forming orange, brown, or red spores on leaves. It weakens the plant and reduces photosynthesis efficiency.',
+    thumbnail_url: 'https://images.pexels.com/photos/1072824/pexels-photo-1072824.jpeg?auto=compress&cs=tinysrgb&w=400',
+    tips: {
+      prevention: ['Avoid wet foliage', 'Remove volunteer plants', 'Use rust-resistant varieties'],
+      treatment: ['Apply copper-based sprays', 'Prune infected leaves', 'Destroy plant debris after harvest']
+    }
+  },
+  {
+    id: 'black_rot',
+    name: 'Black Rot',
+    type: 'bacterial' as const,
+    short_desc: 'V-shaped yellow lesions on leaf edges that darken and spread inward.',
+    long_desc: 'Black rot is a bacterial disease common in cruciferous crops. It begins as yellowing near leaf edges and advances to dark, necrotic tissue. It spreads through water and contaminated tools.',
+    thumbnail_url: 'https://images.pexels.com/photos/1376310/pexels-photo-1376310.jpeg?auto=compress&cs=tinysrgb&w=400',
+    tips: {
+      prevention: ['Use certified disease-free seeds', 'Rotate crops every few years', 'Avoid overhead watering'],
+      treatment: ['Remove infected plants', 'Apply copper-based bactericides', 'Keep foliage dry']
+    }
+  },
+  {
+    id: 'leaf_spot',
+    name: 'Leaf Spot',
+    type: 'bacterial' as const,
+    short_desc: 'Small brown or black circular spots that enlarge and cause leaf drop.',
+    long_desc: 'Leaf spot diseases are caused by fungi or bacteria and are common on vegetables and ornamentals. They reduce plant vigor and can cause premature defoliation.',
+    thumbnail_url: 'https://images.pexels.com/photos/1413123/pexels-photo-1413123.jpeg?auto=compress&cs=tinysrgb&w=400',
+    tips: {
+      prevention: ['Avoid overhead watering', 'Space plants properly', 'Disinfect tools regularly'],
+      treatment: ['Remove affected leaves', 'Apply safe fungicides', 'Improve air circulation']
+    }
+  },
+  {
+    id: 'leaf_scorch',
+    name: 'Leaf Scorch',
+    type: 'bacterial' as const,
+    short_desc: 'Leaves turn brown from the edges inward, usually during hot, dry weather.',
+    long_desc: 'Leaf scorch occurs when water movement within the plant is disrupted due to bacterial infection or drought. It results in browning and curling of leaf margins.',
+    thumbnail_url: 'https://images.pexels.com/photos/1371523/pexels-photo-1371523.jpeg?auto=compress&cs=tinysrgb&w=400',
+    tips: {
+      prevention: ['Maintain consistent watering', 'Avoid over-fertilization', 'Mulch to conserve soil moisture'],
+      treatment: ['Prune affected branches', 'Provide adequate hydration', 'Promote root health']
+    }
   }
 ]
 
