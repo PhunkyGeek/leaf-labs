@@ -169,12 +169,28 @@ export default function ScanPage() {
                 </CardContent>
               </Card>
 
+              {/* Scanning Tips */}
               <Card>
-                <CardContent className="pt-6 text-sm text-muted-foreground space-y-2">
-                  <h3 className="font-semibold mb-2">Tips for Best Results</h3>
-                  <p>• Use good lighting and focus on the affected leaf</p>
-                  <p>• Avoid blur or glare</p>
-                  <p>• Capture from 6–12 inches away</p>
+                <CardContent className="pt-6">
+                  <h3 className="font-semibold mb-3">Tips for Best Results</h3>
+                  <div className="space-y-2 text-sm text-muted-foreground">
+                    <div className="flex items-start gap-2">
+                      <div className="w-1.5 h-1.5 rounded-full bg-primary mt-2 flex-shrink-0"></div>
+                      <span>Ensure good lighting and focus on the affected area</span>
+                    </div>
+                    <div className="flex items-start gap-2">
+                      <div className="w-1.5 h-1.5 rounded-full bg-primary mt-2 flex-shrink-0"></div>
+                      <span>Include the entire leaf or affected plant part</span>
+                    </div>
+                    <div className="flex items-start gap-2">
+                      <div className="w-1.5 h-1.5 rounded-full bg-primary mt-2 flex-shrink-0"></div>
+                      <span>Avoid blurry or dark images for accurate results</span>
+                    </div>
+                    <div className="flex items-start gap-2">
+                      <div className="w-1.5 h-1.5 rounded-full bg-primary mt-2 flex-shrink-0"></div>
+                      <span>Hold steady and capture from about 6–12 inches away</span>
+                    </div>
+                  </div>
                 </CardContent>
               </Card>
 
