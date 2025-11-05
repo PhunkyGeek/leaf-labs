@@ -1,6 +1,6 @@
-'use client'
+ 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuthStore } from '@/lib/stores/auth-store'
 import { useAppStore } from '@/lib/stores/app-store'
@@ -20,7 +20,7 @@ const mockDiseases = [
     type: 'fungal' as const,
     short_desc: 'White, powdery spots on leaves and stems, often caused by high humidity and poor air circulation.',
     long_desc: 'Early blight is a common fungal disease that affects tomato plants, causing dark lesions with concentric rings on leaves. The disease typically starts on lower, older leaves and progresses upward. It thrives in warm, humid conditions and can significantly reduce plant yield if left untreated.',
-    thumbnail_url: 'https://images.pexels.com/photos/1407305/pexels-photo-1407305.jpeg?auto=compress&cs=tinysrgb&w=400',
+  thumbnail_url: 'https://source.unsplash.com/400x400/?early%20blight,tomato,plant',
     tips: {
       prevention: ['Ensure good air circulation', 'Water at soil level', 'Apply mulch to prevent soil splash'],
       treatment: ['Remove affected leaves', 'Apply fungicide sprays', 'Improve plant spacing']
@@ -32,7 +32,7 @@ const mockDiseases = [
     type: 'bacterial' as const,
     short_desc: 'Dark, water-soaked lesions on leaves and stems, often caused by wet conditions and poor sanitation.',
     long_desc: 'Bacterial spot is caused by several Xanthomonas species and creates small, dark spots with yellow halos on leaves. The disease spreads rapidly in warm, wet conditions and can affect both foliage and fruit. Proper sanitation and copper-based treatments are essential for management.',
-    thumbnail_url: 'https://images.pexels.com/photos/1435904/pexels-photo-1435904.jpeg?auto=compress&cs=tinysrgb&w=400',
+  thumbnail_url: 'https://source.unsplash.com/400x400/?bacterial%20spot,leaf,plant',
     tips: {
       prevention: ['Use disease-free seeds', 'Practice crop rotation', 'Avoid overhead watering'],
       treatment: ['Apply copper-based fungicides', 'Remove infected plant debris', 'Improve drainage']
@@ -44,7 +44,7 @@ const mockDiseases = [
     type: 'viral' as const,
     short_desc: 'Mottled or streaked patterns on leaves, often caused by insect vectors or contaminated tools.',
     long_desc: 'Mosaic viruses cause characteristic mottled patterns on plant leaves, with alternating light and dark green areas. These viruses are typically spread by aphids, thrips, or contaminated tools. There is no cure for viral infections, so prevention and vector control are crucial.',
-    thumbnail_url: 'https://images.pexels.com/photos/1379636/pexels-photo-1379636.jpeg?auto=compress&cs=tinysrgb&w=400',
+  thumbnail_url: 'https://source.unsplash.com/400x400/?mosaic%20virus,plant,leaf',
     tips: {
       prevention: ['Control insect vectors', 'Use virus-free planting material', 'Sanitize tools regularly'],
       treatment: ['Remove infected plants', 'Control aphid populations', 'No chemical cure available']
@@ -56,7 +56,7 @@ const mockDiseases = [
     type: 'fungal' as const,
     short_desc: 'White, powdery growth on leaf surfaces, commonly in dry conditions with poor air flow.',
     long_desc: 'Powdery mildew is a fungal disease that affects many crops and appears as white, dusty spots on leaves and stems. It thrives in warm, dry climates and can weaken plant health over time if untreated.',
-    thumbnail_url: 'https://images.pexels.com/photos/1128675/pexels-photo-1128675.jpeg?auto=compress&cs=tinysrgb&w=400',
+  thumbnail_url: 'https://source.unsplash.com/400x400/?powdery%20mildew,leaf,plant',
     tips: {
       prevention: ['Plant in well-ventilated areas', 'Avoid overcrowding', 'Select resistant varieties'],
       treatment: ['Prune affected areas', 'Apply sulfur or neem oil spray', 'Maintain moderate humidity']
@@ -68,7 +68,7 @@ const mockDiseases = [
     type: 'fungal' as const,
     short_desc: 'Dark, irregular patches on leaves and stems, spreading rapidly in cool, wet conditions.',
     long_desc: 'Late blight is a destructive fungal disease caused by Phytophthora infestans. It causes large brown lesions with white mold on the underside of leaves and can destroy entire crops in days under moist conditions.',
-    thumbnail_url: 'https://images.pexels.com/photos/1425209/pexels-photo-1425209.jpeg?auto=compress&cs=tinysrgb&w=400',
+  thumbnail_url: 'https://source.unsplash.com/400x400/?late%20blight,tomato,plant',
     tips: {
       prevention: ['Avoid working with wet plants', 'Use resistant varieties', 'Ensure good drainage'],
       treatment: ['Remove infected plants immediately', 'Use copper fungicides', 'Monitor moisture levels regularly']
@@ -80,7 +80,7 @@ const mockDiseases = [
     type: 'fungal' as const,
     short_desc: 'Sunken dark spots on leaves, fruits, or stems, often appearing during humid weather.',
     long_desc: 'Anthracnose is a fungal disease affecting beans, mangoes, and other crops. It causes sunken black or brown spots on leaves and fruits, leading to reduced yield and quality if not controlled.',
-    thumbnail_url: 'https://images.pexels.com/photos/1591462/pexels-photo-1591462.jpeg?auto=compress&cs=tinysrgb&w=400',
+  thumbnail_url: 'https://source.unsplash.com/400x400/?anthracnose,leaf,fruit',
     tips: {
       prevention: ['Avoid overhead irrigation', 'Remove diseased debris', 'Use clean planting material'],
       treatment: ['Apply fungicides as needed', 'Ensure proper spacing', 'Improve air circulation']
@@ -92,7 +92,7 @@ const mockDiseases = [
     type: 'fungal' as const,
     short_desc: 'Orange or brown pustules on leaf undersides, leading to yellowing and premature leaf drop.',
     long_desc: 'Rust is a fungal disease that spreads easily in humid conditions, forming orange, brown, or red spores on leaves. It weakens the plant and reduces photosynthesis efficiency.',
-    thumbnail_url: 'https://images.pexels.com/photos/1072824/pexels-photo-1072824.jpeg?auto=compress&cs=tinysrgb&w=400',
+  thumbnail_url: 'https://source.unsplash.com/400x400/?rust,leaf,plant',
     tips: {
       prevention: ['Avoid wet foliage', 'Remove volunteer plants', 'Use rust-resistant varieties'],
       treatment: ['Apply copper-based sprays', 'Prune infected leaves', 'Destroy plant debris after harvest']
@@ -104,7 +104,7 @@ const mockDiseases = [
     type: 'bacterial' as const,
     short_desc: 'V-shaped yellow lesions on leaf edges that darken and spread inward.',
     long_desc: 'Black rot is a bacterial disease common in cruciferous crops. It begins as yellowing near leaf edges and advances to dark, necrotic tissue. It spreads through water and contaminated tools.',
-    thumbnail_url: 'https://images.pexels.com/photos/1376310/pexels-photo-1376310.jpeg?auto=compress&cs=tinysrgb&w=400',
+  thumbnail_url: 'https://source.unsplash.com/400x400/?black%20rot,leaf,plant',
     tips: {
       prevention: ['Use certified disease-free seeds', 'Rotate crops every few years', 'Avoid overhead watering'],
       treatment: ['Remove infected plants', 'Apply copper-based bactericides', 'Keep foliage dry']
@@ -116,7 +116,7 @@ const mockDiseases = [
     type: 'bacterial' as const,
     short_desc: 'Small brown or black circular spots that enlarge and cause leaf drop.',
     long_desc: 'Leaf spot diseases are caused by fungi or bacteria and are common on vegetables and ornamentals. They reduce plant vigor and can cause premature defoliation.',
-    thumbnail_url: 'https://images.pexels.com/photos/1413123/pexels-photo-1413123.jpeg?auto=compress&cs=tinysrgb&w=400',
+  thumbnail_url: 'https://source.unsplash.com/400x400/?leaf%20spot,leaf,plant',
     tips: {
       prevention: ['Avoid overhead watering', 'Space plants properly', 'Disinfect tools regularly'],
       treatment: ['Remove affected leaves', 'Apply safe fungicides', 'Improve air circulation']
@@ -128,7 +128,7 @@ const mockDiseases = [
     type: 'bacterial' as const,
     short_desc: 'Leaves turn brown from the edges inward, usually during hot, dry weather.',
     long_desc: 'Leaf scorch occurs when water movement within the plant is disrupted due to bacterial infection or drought. It results in browning and curling of leaf margins.',
-    thumbnail_url: 'https://images.pexels.com/photos/1371523/pexels-photo-1371523.jpeg?auto=compress&cs=tinysrgb&w=400',
+  thumbnail_url: 'https://source.unsplash.com/400x400/?leaf%20scorch,dry%20leaf,plant',
     tips: {
       prevention: ['Maintain consistent watering', 'Avoid over-fertilization', 'Mulch to conserve soil moisture'],
       treatment: ['Prune affected branches', 'Provide adequate hydration', 'Promote root health']
@@ -141,8 +141,46 @@ export default function LibraryPage() {
   const { scans } = useAppStore()
   const router = useRouter()
   
+  const [diseases, setDiseases] = useState<typeof mockDiseases>(mockDiseases)
   const [selectedDisease, setSelectedDisease] = useState<typeof mockDiseases[0] | null>(null)
   const [selectedScan, setSelectedScan] = useState<any>(null)
+
+  useEffect(() => {
+    let cancelled = false
+    const fetchImageFor = async (query: string) => {
+      try {
+        const res = await fetch('/api/unsplash-search', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ query }),
+        })
+        if (!res.ok) return null
+        const json = await res.json()
+        return json?.url ?? null
+      } catch {
+        return null
+      }
+    }
+
+    const run = async () => {
+      const updated = [...diseases]
+      for (let i = 0; i < updated.length; i++) {
+        const d = updated[i]
+        const query = `${d.name} plant disease`
+        const url = await fetchImageFor(query)
+        if (cancelled) return
+        if (url) {
+          updated[i] = { ...d, thumbnail_url: url }
+          setDiseases([...updated])
+        }
+        // small delay to be polite to the API
+        await new Promise((r) => setTimeout(r, 150))
+      }
+    }
+
+    run()
+    return () => { cancelled = true }
+  }, [])
 
   if (!user) {
     router.push('/auth')
@@ -282,7 +320,7 @@ export default function LibraryPage() {
                   <div className="space-y-4">
                     <h3 className="font-semibold">Common Diseases</h3>
                     <div className="space-y-3">
-                      {mockDiseases.map((disease) => (
+                      {diseases.map((disease) => (
                         <Card key={disease.id} className="cursor-pointer hover:shadow-md transition-shadow">
                           <CardContent className="p-4">
                             <div 
@@ -295,6 +333,11 @@ export default function LibraryPage() {
                                   alt={disease.name}
                                   fill
                                   className="object-cover"
+                                  onError={() => {
+                                    const orig = mockDiseases.find((m) => m.id === disease.id)
+                                    if (!orig) return
+                                    setDiseases((prev) => prev.map((p) => p.id === disease.id ? { ...p, thumbnail_url: orig.thumbnail_url } : p))
+                                  }}
                                 />
                               </div>
                               <div className="flex-1 min-w-0">
@@ -320,7 +363,7 @@ export default function LibraryPage() {
                 {['bacterial', 'fungal', 'viral'].map((type) => (
                   <TabsContent key={type} value={type}>
                     <div className="space-y-3">
-                      {mockDiseases
+                      {diseases
                         .filter((disease) => disease.type === type)
                         .map((disease) => (
                           <Card key={disease.id} className="cursor-pointer hover:shadow-md transition-shadow">
@@ -335,6 +378,11 @@ export default function LibraryPage() {
                                     alt={disease.name}
                                     fill
                                     className="object-cover"
+                                    onError={() => {
+                                      const orig = mockDiseases.find((m) => m.id === disease.id)
+                                      if (!orig) return
+                                      setDiseases((prev) => prev.map((p) => p.id === disease.id ? { ...p, thumbnail_url: orig.thumbnail_url } : p))
+                                    }}
                                   />
                                 </div>
                                 <div className="flex-1 min-w-0">
@@ -464,14 +512,77 @@ export default function LibraryPage() {
 
                 {selectedScan.result && (
                   <>
-                    <div className="space-y-2">
-                      <h3 className="font-semibold">Analysis</h3>
-                      <p className="text-sm text-muted-foreground">{selectedScan.result.explanation}</p>
-                    </div>
+                    {/* Top Predictions */}
+                    {selectedScan.result.predictions && selectedScan.result.predictions.length > 0 && (
+                      <div className="space-y-2">
+                        <h3 className="font-semibold">Top Predictions</h3>
+                        <div className="space-y-1">
+                          {selectedScan.result.predictions.slice(0, 3).map((p: any, idx: number) => (
+                            <div key={idx} className="flex items-center justify-between">
+                              <span className="text-sm truncate">{p.class_name}</span>
+                              <Badge variant={idx === 0 ? 'default' : 'secondary'}>
+                                {Math.round((p.confidence ?? 0) * 100)}%
+                              </Badge>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
 
+                    {/* About / Diagnosis */}
+                    {(selectedScan.result.diagnosis || selectedScan.result.management) && (
+                      <div className="space-y-2">
+                        <h3 className="font-semibold">About This Disease</h3>
+                        {selectedScan.result.diagnosis && (
+                          <p className="text-sm text-muted-foreground">{selectedScan.result.diagnosis}</p>
+                        )}
+                        {selectedScan.result.management && (
+                          <p className="text-sm text-muted-foreground mt-1">{selectedScan.result.management}</p>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Affected Parts and Stage (if available)
+                    {selectedScan.result.parts && Object.keys(selectedScan.result.parts).length > 0 && (
+                      <div className="space-y-2">
+                        <h3 className="font-semibold">Affected Parts</h3>
+                        {Object.entries(selectedScan.result.parts).map(([part, val]: any) => (
+                          <div key={part} className="flex justify-between text-sm">
+                            <span className="capitalize">{part}</span>
+                            <span>{Math.round((val ?? 0) * 100)}%</span>
+                          </div>
+                        ))}
+                      </div>
+                    )} */}
+
+                    {/* Explanation / Analysis */}
+                    {selectedScan.result.explanation && (
+                      <div className="space-y-2">
+                        <h3 className="font-semibold">Analysis</h3>
+                        <p className="text-sm text-muted-foreground">{selectedScan.result.explanation}</p>
+                      </div>
+                    )}
+
+                    {/* Expert Advice */}
+                    {selectedScan.result.advice && (
+                      <div className="space-y-2">
+                        <h3 className="font-semibold">Expert Advice</h3>
+                        <p className="text-sm text-muted-foreground">{selectedScan.result.advice}</p>
+                      </div>
+                    )}
+
+                    {/* Post-care */}
+                    {selectedScan.result.postcare && (
+                      <div className="space-y-2">
+                        <h3 className="font-semibold">Post-Care Instructions</h3>
+                        <p className="text-sm text-muted-foreground">{selectedScan.result.postcare}</p>
+                      </div>
+                    )}
+
+                    {/* Combined Analysis & Recommendations */}
                     <div className="space-y-2">
-                      <h3 className="font-semibold">Recommendations</h3>
-                      <p className="text-sm text-muted-foreground">{selectedScan.result.advice}</p>
+                      <h3 className="font-semibold">Analysis & Recommendations</h3>
+                      <p className="text-sm text-muted-foreground">{`${selectedScan.result.explanation || ''} ${selectedScan.result.management || ''} ${selectedScan.result.advice || ''}`.trim()}</p>
                     </div>
                   </>
                 )}

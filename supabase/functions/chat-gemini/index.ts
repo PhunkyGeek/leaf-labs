@@ -108,8 +108,11 @@ Provide detailed, practical, and actionable advice. Be conversational and helpfu
       parts: [{ text: message }]
     });
 
+    // Use a Gemini model version that supports conversation/generation.
+    // Switched from gemini-2.5-flash which caused NOT_FOUND for some API keys/environments.
+    const geminiModel = `models/gemini-2.5-flash:generateContent`;
     const geminiResponse = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent`,
+      `https://generativelanguage.googleapis.com/v1beta/${geminiModel}`,
       {
         method: 'POST',
         headers: {

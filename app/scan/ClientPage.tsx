@@ -4,6 +4,7 @@ import { useState, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuthStore } from '@/lib/stores/auth-store'
 import { useAppStore } from '@/lib/stores/app-store'
+import { supabase } from '@/lib/supabase/client'
 import { BottomNav } from '@/components/ui/bottom-nav'
 import { ScanResultModal } from '@/components/ui/scan-result-modal'
 import { Button } from '@/components/ui/button'
@@ -124,7 +125,75 @@ export default function ScanPage() {
           advice: formatted.advice,
           postcare: formatted.postcare,
         },
-      })
+      });
+
+      // Persist only the scan row (client-side is allowed by RLS), then call a server-side function
+      // to insert the scan_results and upsert diseases using the service_role key.
+      (async () => {
+        try {
+          if (!user) return
+
+          // Insert scan record (client-side allowed by RLS policies)
+          const { data: scanRows, error: scanInsertErr } = await (supabase as any)
+            .from('scans')
+            .insert([
+              {
+                user_id: user.id,
+                image_url: imagePreview,
+                model_version: 'gemini-2.5-flash',
+                confidence,
+                status: 'completed',
+                created_at: new Date().toISOString(),
+              },
+            ])
+            .select()
+
+          if (scanInsertErr) throw scanInsertErr
+
+          const scanId = scanRows?.[0]?.id
+          if (!scanId) throw new Error('Failed to create scan record')
+
+          // Get user's access token to authenticate to the save-scan-result edge function
+          let accessToken = ''
+          try {
+            const sessionResp: any = await (supabase as any).auth.getSession()
+            accessToken = sessionResp?.data?.session?.access_token ?? ''
+          } catch (err) {
+            // ignore
+          }
+
+          // Call server-side function to persist scan_results and upsert diseases using service role
+          try {
+            await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/save-scan-result`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                Authorization: accessToken ? `Bearer ${accessToken}` : '',
+              },
+              body: JSON.stringify({
+                scan_id: scanId,
+                result: {
+                  disease_name: diseaseName,
+                  confidence,
+                  predictions: result.predictions || [],
+                  diagnosis: formatted.diagnosis,
+                  management: formatted.management,
+                  postcare: formatted.postcare,
+                  advice: formatted.advice,
+                  explanation: formatted.explanation,
+                  image_url: imagePreview,
+                },
+              }),
+            })
+          } catch (err) {
+            console.error('Failed to call save-scan-result function:', err)
+          }
+        } catch (err) {
+          // Non-fatal; log for debugging
+          // eslint-disable-next-line no-console
+          console.error('Error saving scan to DB (client):', err)
+        }
+      })()
 
       toast.success('Scan completed successfully!')
     } catch (error) {

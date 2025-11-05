@@ -76,8 +76,11 @@ Rules:
 - Keep responses concise and practical.
 `;
 
+    // Use a Gemini model version that supports generateContent for images.
+    // Switched from gemini-2.5-flash which returned NOT_FOUND in some environments.
+    const geminiModel = `models/gemini-2.5-flash:generateContent`;
     const res = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiApiKey}`,
+      `https://generativelanguage.googleapis.com/v1beta/${geminiModel}?key=${geminiApiKey}`,
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },

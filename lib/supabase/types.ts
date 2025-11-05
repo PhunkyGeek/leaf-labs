@@ -69,6 +69,7 @@ export interface Database {
           explanation: string
           advice: string
           postcare: string
+          metadata: Json
           created_at: string
         }
         Insert: {
@@ -80,6 +81,7 @@ export interface Database {
           explanation: string
           advice: string
           postcare: string
+          metadata?: Json
           created_at?: string
         }
         Update: {
@@ -91,6 +93,7 @@ export interface Database {
           explanation?: string
           advice?: string
           postcare?: string
+          metadata?: Json
         }
       }
       diseases: {

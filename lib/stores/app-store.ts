@@ -15,6 +15,9 @@ interface Scan {
     explanation: string
     advice: string
     postcare: string
+    diagnosis?: string | null
+    management?: string | null
+    predictions?: Array<{ class_name: string; confidence: number }>
   }
 }
 
@@ -42,7 +45,7 @@ interface AppState {
   addScan: (scan: Scan) => void
   setDiseases: (diseases: Disease[]) => void
   setStats: (stats: Partial<AppState['stats']>) => void
-  setLastSynced: (date: Date) => void
+  setLastSynced: (date: Date | null) => void
 }
 
 export const useAppStore = create<AppState>((set) => ({
@@ -63,9 +66,11 @@ export const useAppStore = create<AppState>((set) => ({
   setScans: (scans) => set({ scans }),
   addScan: (scan) => set((state) => ({ 
     scans: [scan, ...state.scans],
-    stats: { 
-      ...state.stats, 
-      plantsScanned: state.stats.plantsScanned + 1 
+    stats: {
+      ...state.stats,
+      plantsScanned: state.stats.plantsScanned + 1,
+      diseasesDetected:
+        state.stats.diseasesDetected + (scan.disease_name && scan.disease_name !== 'Healthy' ? 1 : 0),
     }
   })),
   setDiseases: (diseases) => set({ diseases }),
