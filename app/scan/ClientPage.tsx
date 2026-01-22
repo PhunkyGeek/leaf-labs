@@ -12,6 +12,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Camera, Upload, ArrowLeft, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 import Image from 'next/image'
+import { Progress } from '@/components/ui/progress'
 
 export default function ScanPage() {
   const { user } = useAuthStore()
@@ -20,6 +21,9 @@ export default function ScanPage() {
   
   const [selectedImage, setSelectedImage] = useState<File | null>(null)
   const [imagePreview, setImagePreview] = useState<string | null>(null)
+  const [fileBase64, setFileBase64] = useState<string | null>(null)
+  const [uploadProgress, setUploadProgress] = useState<number>(0)
+  const [isUploaded, setIsUploaded] = useState<boolean>(false)
   const [scanning, setScanning] = useState(false)
   const [scanResult, setScanResult] = useState<any>(null)
   const [showResult, setShowResult] = useState(false)
@@ -36,6 +40,31 @@ export default function ScanPage() {
     setSelectedImage(file)
     const url = URL.createObjectURL(file)
     setImagePreview(url)
+    // Read file to base64 and report progress so user knows when it's ready for analysis
+    setIsUploaded(false)
+    setUploadProgress(0)
+    setFileBase64(null)
+    const reader = new FileReader()
+    reader.onprogress = (e) => {
+      if (e.lengthComputable) {
+        const pct = Math.round((e.loaded / e.total) * 100)
+        setUploadProgress(pct)
+      }
+    }
+    reader.onload = () => {
+      const result = reader.result as string
+      setFileBase64(result)
+      setUploadProgress(100)
+      setIsUploaded(true)
+    }
+    reader.onerror = () => {
+      setUploadProgress(0)
+      setIsUploaded(false)
+      setFileBase64(null)
+      console.error('Failed to read file for upload')
+      toast.error('Failed to prepare image for analysis')
+    }
+    reader.readAsDataURL(file)
   }
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -44,7 +73,8 @@ export default function ScanPage() {
   }
 
   const classifyWithGemini = async (file: File) => {
-    const base64 = await new Promise<string>((resolve, reject) => {
+    // Prefer already-read base64 payload (from selection). Otherwise, read now.
+    const base64 = fileBase64 ?? await new Promise<string>((resolve, reject) => {
       const reader = new FileReader()
       reader.onload = () => resolve(reader.result as string)
       reader.onerror = reject
@@ -78,6 +108,17 @@ export default function ScanPage() {
     setScanning(true)
     try {
       toast.info('Analyzing image using Gemini Vision...')
+      // Ensure the file read/upload completed before analyzing
+      if (!isUploaded) {
+        toast.info('Preparing image for analysis...')
+        // wait until fileBase64 is set or timeout after 10s
+        const start = Date.now()
+        while (!fileBase64 && Date.now() - start < 10000) {
+          // small poll
+          // eslint-disable-next-line no-await-in-loop
+          await new Promise((r) => setTimeout(r, 150))
+        }
+      }
       const result = await classifyWithGemini(selectedImage)
 
       const main = result.predictions?.[0]
@@ -207,6 +248,9 @@ export default function ScanPage() {
   const resetScan = () => {
     setSelectedImage(null)
     setImagePreview(null)
+    setFileBase64(null)
+    setUploadProgress(0)
+    setIsUploaded(false)
     setScanResult(null)
     setShowResult(false)
   }
@@ -299,8 +343,17 @@ export default function ScanPage() {
                 </CardContent>
               </Card>
 
+                  {/* Upload / preparation progress (smaller, centered) */}
+                  <div className="px-6">
+                    <div className="mx-auto w-48 text-center">
+                      <div className="text-sm text-muted-foreground mb-2">Preparing image for analysis</div>
+                      <Progress value={uploadProgress} className="h-1.5 rounded mb-2" />
+                      <div className="text-xs text-muted-foreground">{uploadProgress}%</div>
+                    </div>
+                  </div>
+
               <div className="space-y-3">
-                <Button size="lg" className="w-full h-14" onClick={processScan} disabled={scanning}>
+                <Button size="lg" className="w-full h-14" onClick={processScan} disabled={scanning || !isUploaded}>
                   {scanning ? (
                     <>
                       <Loader2 className="h-5 w-5 mr-2 animate-spin" />

@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Leaf Labs — One‑Page Technical Summary</title>
+  <style>
+    @page { size: A4; margin: 18mm; }
+    html,body{font-family: Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial; color:#111;}
+    body{margin:0; padding:0;}
+    .page{width:210mm; min-height:297mm; padding:12mm 16mm; box-sizing:border-box;}
+    h1{font-size:20px; margin:0 0 6px}
+    h2{font-size:12px; margin:10px 0 6px}
+    p{font-size:11px; margin:4px 0}
+    ul{font-size:11px; margin:6px 0 6px 18px}
+    .columns{display:flex; gap:12px}
+    .col{flex:1}
+    .box{border:1px solid #e6e6e6; padding:8px; border-radius:6px;}
+    .muted{color:#666; font-size:10px}
+    .compact{line-height:1.1}
+    .footer{position:absolute; bottom:12mm; left:16mm; right:16mm; font-size:10px; color:#666}
+    pre{font-size:10px; background:#fafafa; padding:8px; border-radius:4px; overflow:auto}
+  </style>
+</head>
+<body>
+  <div class="page">
+    <header>
+      <h1>Leaf Labs — Technical One‑Pager</h1>
+      <p class="muted">A concise technical overview of components and high‑level architecture for the Leaf Labs plant disease detection app.</p>
+    </header>
+
+    <section class="columns" style="margin-top:8px">
+      <div class="col">
+        <div class="box compact">
+          <h2>Core Components</h2>
+          <ul>
+            <li><strong>Frontend</strong>: Next.js (App Router), TypeScript, TailwindCSS, shadcn/ui</li>
+            <li><strong>State</strong>: Zustand for scans, stats, and user session cache</li>
+            <li><strong>AI Inference</strong>: ONNX Runtime Web (client) with server fallback (Google Gemini)</li>
+            <li><strong>Backend</strong>: Supabase — Auth, Postgres, Storage, Edge Functions</li>
+            <li><strong>Storage</strong>: Supabase Storage (uploaded images), CDN/signed URLs</li>
+            <li><strong>Third‑party</strong>: Unsplash proxy (server) for images</li>
+          </ul>
+        </div>
+
+        <div class="box compact" style="margin-top:8px">
+          <h2>Database (summary)</h2>
+          <ul>
+            <li><strong>scans</strong>: id, user_id, image_url, model_version, confidence, status, created_at</li>
+            <li><strong>scan_results</strong>: id, scan_id, disease_id, parts(jsonb), explanation, advice, postcare, metadata(jsonb), created_at</li>
+            <li><strong>diseases</strong>: id, name, type, short_desc, long_desc, thumbnail_url</li>
+            <li>RLS: clients may insert their own scans; service role writes scan_results & upserts diseases</li>
+          </ul>
+        </div>
+
+        <div class="box compact" style="margin-top:8px">
+          <h2>Secrets & Env</h2>
+          <ul>
+            <li>NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_ANON_KEY (client)</li>
+            <li>SUPABASE_SERVICE_ROLE_KEY (server-only)</li>
+            <li>GEMINI_API_KEY, UNSPLASH_KEY (server-only)</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="col">
+        <div class="box compact">
+          <h2>Data Flow — High Level</h2>
+          <ol style="font-size:11px; margin-left:16px">
+            <li>User captures/uploads image in browser.</li>
+            <li>Client runs ONNX inference (fast path). If confident, show modal; otherwise call server classify.</li>
+            <li>Client inserts a <code>scans</code> row (RLS allows owner insert) with image_url.</li>
+            <li>Client calls <code>/functions/save-scan-result</code> with user token; server validates and inserts <code>scan_results</code> using service role and upserts <code>diseases</code>.</li>
+            <li>Provider hydrates scan history from DB (scans + scan_results.metadata) and reconstitutes the modal view for history.</li>
+          </ol>
+        </div>
+
+        <div class="box compact" style="margin-top:8px">
+          <h2>Architecture Diagram (plaintext)</h2>
+          <pre>
+User Device
+  ├─ Next.js UI (camera, scan modal)
+  ├─ ONNX Runtime Web (client inference)
+  └─ Supabase Client
+       ├─ Storage (image upload)
+       ├─ REST (scans insert)
+       └─ Edge Functions
+           ├─ classify-image
+           └─ save-scan-result (service role)
+
+Supabase (Postgres + Storage)
+  ├─ scans, scan_results(metadata), diseases
+  └─ Storage (uploaded images)
+          </pre>
+        </div>
+
+        <div class="box compact" style="margin-top:8px">
+          <h2>Key Design Decisions</h2>
+          <ul>
+            <li>Persist full modal payload in <code>scan_results.metadata</code> (jsonb) so history reproduces exact UI.</li>
+            <li>Minimize client permissions: client inserts scans only; server uses service role for sensitive writes.</li>
+            <li>Unsplash proxy on server to keep API key secret and persist chosen thumbnails.</li>
+            <li>Hydration tolerant to schema changes (attempt metadata select, fallback if absent).</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <footer class="muted footer">
+      Leaf Labs — generated summary • Copy to repo as <code>docs/leaf-labs-one-pager.html</code>
+    </footer>
+  </div>
+</body>
+</html>
